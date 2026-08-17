@@ -18,6 +18,28 @@ app.add_middleware(
 
 model = joblib.load("sepsis_model.pkl")
 feature_names = ["heart_rate", "temp", "resp_rate", "wbc", "systolic_bp"]
+RISK_THRESHOLD = 0.6       # risk score above this counts as "elevated"
+PERSISTENCE_COUNT = 2      # must stay elevated for this many consecutive readings to alert
+
+def add_alert_logic(trajectory):
+    consecutive_high = 0
+    result = []
+
+    for point in trajectory:
+        if point["risk_score"] >= RISK_THRESHOLD:
+            consecutive_high += 1
+        else:
+            consecutive_high = 0
+
+        alert_triggered = consecutive_high >= PERSISTENCE_COUNT
+
+        result.append({
+            **point,
+            "alert": alert_triggered,
+            "consecutive_elevated_readings": consecutive_high
+        })
+
+    return result
 
 class Vitals(BaseModel):
     heart_rate: float
@@ -76,4 +98,4 @@ def predict_trajectory(vitals_sequence: List[Vitals]):
             "risk_score": round(float(risk_prob), 4)
         })
 
-    return {"trajectory": trajectory}
+    return {"trajectory": add_alert_logic(trajectory)}
