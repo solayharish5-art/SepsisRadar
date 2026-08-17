@@ -64,7 +64,7 @@ def predict_risk(vitals: Vitals):
 
     risk_prob = model.predict_proba(input_data)[0][1]
 
-    coefficients = model.coef_[0]
+    coefficients = model.feature_importances_
     contributions = {}
     for name, coef in zip(feature_names, coefficients):
         contributions[name] = round(float(coef * input_data[name].values[0]), 2)
