@@ -78,7 +78,7 @@ def predict_risk(vitals: Vitals):
     return {
         "risk_score": round(float(risk_prob), 4),
         "top_factors": top_factors,
-        "note": "Prediction from trained logistic regression model"
+        "note": "Prediction from trained XGBoost model (PhysioNet 2019 dataset)"
     }
 
 @app.post("/predict_trajectory")
