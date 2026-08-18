@@ -126,7 +126,6 @@
     let currentSimulation = null;
     let simIndex = 0;
 
-    
     // Patient A: Gradual deterioration (Takes 4 hours to alert)
     const patientA = [
       { heart_rate: 78.0,  temp: 36.9, resp_rate: 16.0, wbc: 8.7,  systolic_bp: 118.0 }, // Normal
@@ -136,12 +135,11 @@
       { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 }   // Sustains 53.8% -> ALERT!
     ];
 
-   const patientB = [
+    const patientB = [
       { heart_rate: 82.0,  temp: 37.1, resp_rate: 18.0, wbc: 9.5,  systolic_bp: 112.0 }, // Normal
       { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 },  // Hits 53.8%
       { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 }   // Sustains 53.8% -> ALERT!
     ];
-   
 
     const ctx = document.getElementById('trajectoryChart').getContext('2d');
     const chart = new Chart(ctx, {
@@ -186,6 +184,12 @@
     }
 
     async function submitLiveReading() {
+      // 1. Grab the button and disable it so it can't be clicked twice
+      const btn = document.getElementById('advance-btn');
+      btn.disabled = true;
+      btn.innerText = "Processing...";
+      btn.classList.add("opacity-50", "cursor-not-allowed");
+
       const currentVitals = {
         heart_rate: parseFloat(document.getElementById('input-hr').value),
         temp: parseFloat(document.getElementById('input-temp').value),
@@ -261,6 +265,12 @@
       } catch (err) {
         console.error(err);
         alert("Failed to hit backend API.");
+      } finally {
+        // 3. Turn the button back on no matter what happens
+        const btn = document.getElementById('advance-btn');
+        btn.disabled = false;
+        btn.innerText = "Submit Live Reading (+1h)";
+        btn.classList.remove("opacity-50", "cursor-not-allowed");
       }
     }
   </script>
