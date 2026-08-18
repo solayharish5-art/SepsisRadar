@@ -17,7 +17,7 @@ app.add_middleware(
 
 model = joblib.load("sepsis_model.pkl")
 feature_names = ["heart_rate", "temp", "resp_rate", "wbc", "systolic_bp"]
-RISK_THRESHOLD = 0.6       # risk score above this counts as "elevated"
+RISK_THRESHOLD = 0.4       # risk score above this counts as "elevated"
 PERSISTENCE_COUNT = 2      # must stay elevated for this many consecutive readings to alert
 
 # --- PYDANTIC MODELS (Defines the exact JSON structure for the frontend) ---
