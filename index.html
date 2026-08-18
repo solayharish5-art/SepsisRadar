@@ -1,10 +1,268 @@
-<h1>Firebase Test</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS - ICU Sepsis Early-Warning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background-color: #0b0f17; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+    input[type="number"]::-webkit-inner-spin-button, 
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  </style>
+</head>
+<body class="p-6">
 
-<input type="text" id="nameInput" placeholder="Medicine name">
-<input type="text" id="timeInput" placeholder="Time (e.g. 8:00 AM)">
-<button onclick="addReminder()">Add Reminder</button>
-<button onclick="getReminders()">Get Reminders</button>
+  <!-- Header Banner -->
+  <div class="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-wider text-cyan-400">NEXUS · ICU MONITOR</h1>
+      <p class="text-xs text-gray-400 mt-1">SEPSIS EARLY-WARNING & SPATIAL INTELLIGENCE (PS-S02)</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800 mr-4">
+        ● LIVE XGBOOST API
+      </span>
+      <button onclick="loadPatient('A')" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 font-semibold text-xs px-3 py-2 rounded transition-all">
+        Load Patient A (Gradual)
+      </button>
+      <button onclick="loadPatient('B')" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 font-semibold text-xs px-3 py-2 rounded transition-all">
+        Load Patient B (Rapid)
+      </button>
+      <button id="advance-btn" onclick="submitLiveReading()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-all shadow-lg shadow-cyan-900/30 ml-2">
+        Submit Live Reading (+1h)
+      </button>
+    </div>
+  </div>
 
-<ul id="reminderList"></ul>
+  <!-- INTERACTIVE Vitals Telemetry Grid -->
+  <div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl transition-all focus-within:border-cyan-500">
+      <div class="text-xs text-cyan-400 font-semibold mb-1">EDIT: HEART RATE</div>
+      <div class="flex items-baseline">
+        <input type="number" id="input-hr" value="78" step="1" class="text-3xl font-bold bg-transparent text-white w-20 focus:outline-none border-b border-dashed border-gray-600 focus:border-cyan-400 text-center mr-1">
+        <span class="text-xs font-normal text-gray-500">bpm</span>
+      </div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl transition-all focus-within:border-cyan-500">
+      <div class="text-xs text-cyan-400 font-semibold mb-1">EDIT: TEMP</div>
+      <div class="flex items-baseline">
+        <input type="number" id="input-temp" value="36.9" step="0.1" class="text-3xl font-bold bg-transparent text-white w-24 focus:outline-none border-b border-dashed border-gray-600 focus:border-cyan-400 text-center mr-1">
+        <span class="text-xs font-normal text-gray-500">°C</span>
+      </div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl transition-all focus-within:border-cyan-500">
+      <div class="text-xs text-cyan-400 font-semibold mb-1">EDIT: RESP RATE</div>
+      <div class="flex items-baseline">
+        <input type="number" id="input-rr" value="16" step="1" class="text-3xl font-bold bg-transparent text-white w-20 focus:outline-none border-b border-dashed border-gray-600 focus:border-cyan-400 text-center mr-1">
+        <span class="text-xs font-normal text-gray-500">/min</span>
+      </div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl transition-all focus-within:border-cyan-500">
+      <div class="text-xs text-cyan-400 font-semibold mb-1">EDIT: WBC</div>
+      <div class="flex items-baseline">
+        <input type="number" id="input-wbc" value="8.7" step="0.1" class="text-3xl font-bold bg-transparent text-white w-24 focus:outline-none border-b border-dashed border-gray-600 focus:border-cyan-400 text-center mr-1">
+        <span class="text-xs font-normal text-gray-500">10³/µL</span>
+      </div>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl transition-all focus-within:border-cyan-500">
+      <div class="text-xs text-cyan-400 font-semibold mb-1">EDIT: SYSTOLIC BP</div>
+      <div class="flex items-baseline">
+        <input type="number" id="input-bp" value="118" step="1" class="text-3xl font-bold bg-transparent text-white w-24 focus:outline-none border-b border-dashed border-gray-600 focus:border-cyan-400 text-center mr-1">
+        <span class="text-xs font-normal text-gray-500">mmHg</span>
+      </div>
+    </div>
+  </div>
 
-<script type="module" src="firebase.js"></script>
+  <!-- Main Content Grid: Alert Status + Graph -->
+  <div class="grid grid-cols-3 gap-6 mb-6">
+    <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl flex flex-col justify-between">
+      <div>
+        <div class="text-xs text-gray-400 font-semibold tracking-wider mb-2">CURRENT MODEL STATE</div>
+        <div id="alert-banner" class="p-4 rounded-xl bg-emerald-950/50 border border-emerald-800 text-emerald-400 mb-4">
+          <div class="text-lg font-bold" id="alert-status">AWAITING DATA</div>
+          <div class="text-xs text-emerald-300 mt-1" id="alert-subtext">Select a patient or enter vitals to begin</div>
+        </div>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between border-b border-gray-800 py-1">
+            <span class="text-gray-400">Risk Probability:</span>
+            <span id="risk-prob" class="font-bold text-white">--%</span>
+          </div>
+          <div class="flex justify-between border-b border-gray-800 py-1">
+            <span class="text-gray-400">Time Horizon:</span>
+            <span id="time-horizon" class="font-bold text-cyan-400">--</span>
+          </div>
+          <div class="flex justify-between border-b border-gray-800 py-1">
+            <span class="text-gray-400">Alert Fatigue Filter:</span>
+            <span id="consecutive-count" class="font-semibold text-gray-300">0 / 2 readings</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="text-xs text-gray-400 font-semibold mb-2">TOP RISK DRIVERS</div>
+        <div id="factors-list" class="space-y-1 text-xs">
+          <div class="text-gray-500 italic">Waiting for trajectory data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trajectory Chart Card -->
+    <div class="col-span-2 bg-gray-900 border border-gray-800 p-5 rounded-xl">
+      <div class="flex justify-between items-center mb-4">
+        <div class="text-xs text-gray-400 font-semibold tracking-wider" id="chart-title">SEPSIS RISK TRAJECTORY OVER TIME</div>
+        <span class="text-xs text-gray-500">Threshold: 40%</span>
+      </div>
+      <div class="h-64">
+        <canvas id="trajectoryChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://glorious-amazement-production-2e44.up.railway.app/predict_trajectory"; 
+    
+    let liveTrajectoryData = [];
+    let currentSimulation = null;
+    let simIndex = 0;
+
+    
+    // Patient A: Gradual deterioration (Takes 4 hours to alert)
+    const patientA = [
+      { heart_rate: 78.0,  temp: 36.9, resp_rate: 16.0, wbc: 8.7,  systolic_bp: 118.0 }, // Normal
+      { heart_rate: 90.0,  temp: 37.5, resp_rate: 18.0, wbc: 11.2, systolic_bp: 110.0 }, // Rising
+      { heart_rate: 112.0, temp: 38.6, resp_rate: 22.0, wbc: 14.5, systolic_bp: 95.0 },  // Elevated
+      { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 },  // Hits 53.8%
+      { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 }   // Sustains 53.8% -> ALERT!
+    ];
+
+   const patientB = [
+      { heart_rate: 82.0,  temp: 37.1, resp_rate: 18.0, wbc: 9.5,  systolic_bp: 112.0 }, // Normal
+      { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 },  // Hits 53.8%
+      { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 }   // Sustains 53.8% -> ALERT!
+    ];
+   
+
+    const ctx = document.getElementById('trajectoryChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: 'Risk Score (%)', data: [], borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.1)', fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: '#06b6d4' }] },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }, x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } }
+    });
+
+    function updateInputs(vitals) {
+      if(!vitals) return;
+      document.getElementById('input-hr').value = vitals.heart_rate;
+      document.getElementById('input-temp').value = vitals.temp;
+      document.getElementById('input-rr').value = vitals.resp_rate;
+      document.getElementById('input-wbc').value = vitals.wbc;
+      document.getElementById('input-bp').value = vitals.systolic_bp;
+    }
+
+    function loadPatient(type) {
+      liveTrajectoryData = [];
+      simIndex = 0;
+      currentSimulation = type === 'A' ? patientA : patientB;
+      
+      document.getElementById('chart-title').innerText = `SEPSIS RISK TRAJECTORY: PATIENT ${type}`;
+      
+      // Reset Chart
+      chart.data.labels = [];
+      chart.data.datasets[0].data = [];
+      chart.update();
+
+      // Reset Banners
+      const banner = document.getElementById('alert-banner');
+      banner.className = "p-4 rounded-xl bg-emerald-950/50 border border-emerald-800 text-emerald-400 mb-4";
+      document.getElementById('alert-status').innerText = "DATA CLEARED";
+      document.getElementById('alert-subtext').innerText = `Patient ${type} loaded. Click Submit to begin tracking.`;
+      
+      document.getElementById('risk-prob').innerText = "--%";
+      document.getElementById('time-horizon').innerText = "--";
+      document.getElementById('consecutive-count').innerText = "0 / 2 readings";
+      document.getElementById('factors-list').innerHTML = '<div class="text-gray-500 italic">Waiting for trajectory data...</div>';
+
+      updateInputs(currentSimulation[simIndex]);
+    }
+
+    async function submitLiveReading() {
+      const currentVitals = {
+        heart_rate: parseFloat(document.getElementById('input-hr').value),
+        temp: parseFloat(document.getElementById('input-temp').value),
+        resp_rate: parseFloat(document.getElementById('input-rr').value),
+        wbc: parseFloat(document.getElementById('input-wbc').value),
+        systolic_bp: parseFloat(document.getElementById('input-bp').value)
+      };
+
+      liveTrajectoryData.push(currentVitals);
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(liveTrajectoryData)
+        });
+        const data = await res.json();
+        
+        const trajectory = data.trajectory;
+        const latestPoint = trajectory[trajectory.length - 1];
+
+        // Update UI
+        document.getElementById('risk-prob').innerText = `${(latestPoint.risk_score * 100).toFixed(1)}%`;
+        document.getElementById('time-horizon').innerText = latestPoint.time_horizon;
+        document.getElementById('consecutive-count').innerText = `${latestPoint.consecutive_elevated_readings} / 2 readings`;
+
+        const banner = document.getElementById('alert-banner');
+        const status = document.getElementById('alert-status');
+        const subtext = document.getElementById('alert-subtext');
+
+        if (latestPoint.alert) {
+          banner.className = "p-4 rounded-xl bg-red-950/80 border border-red-600 text-red-400 animate-pulse";
+          status.innerText = "🚨 SEPSIS ONSET ALERT";
+          subtext.innerText = "Sustained high risk across consecutive readings!";
+          chart.data.datasets[0].borderColor = '#ef4444';
+          chart.data.datasets[0].pointBackgroundColor = '#ef4444';
+        } else if (latestPoint.risk_score >= 0.4) {
+          banner.className = "p-4 rounded-xl bg-amber-950/70 border border-amber-600 text-amber-400";
+          status.innerText = "⚠️ ELEVATED RISK";
+          subtext.innerText = "Single spike detected. Awaiting persistence check...";
+          chart.data.datasets[0].borderColor = '#06b6d4';
+          chart.data.datasets[0].pointBackgroundColor = '#06b6d4';
+        } else {
+          banner.className = "p-4 rounded-xl bg-emerald-950/50 border border-emerald-800 text-emerald-400";
+          status.innerText = "NORMAL";
+          subtext.innerText = "Risk score within nominal range";
+          chart.data.datasets[0].borderColor = '#06b6d4';
+          chart.data.datasets[0].pointBackgroundColor = '#06b6d4';
+        }
+
+        const factorsContainer = document.getElementById('factors-list');
+        factorsContainer.innerHTML = '';
+        latestPoint.top_factors.slice(0, 3).forEach(f => {
+          factorsContainer.innerHTML += `
+            <div class="flex justify-between items-center bg-gray-800/60 px-3 py-1.5 rounded border border-gray-700">
+              <span class="font-medium text-gray-200">${f.factor}</span>
+              <span class="${f.impact > 0 ? 'text-red-400' : 'text-emerald-400'}">${f.impact}% (${f.direction})</span>
+            </div>`;
+        });
+
+        chart.data.labels = trajectory.map(p => `Hour ${p.time_point}`);
+        chart.data.datasets[0].data = trajectory.map(p => (p.risk_score * 100).toFixed(1));
+        chart.update();
+
+        // Advance simulation index for the next click
+        if (currentSimulation) {
+          simIndex++;
+          if (simIndex < currentSimulation.length) {
+            updateInputs(currentSimulation[simIndex]);
+          }
+        }
+
+      } catch (err) {
+        console.error(err);
+        alert("Failed to hit backend API.");
+      }
+    }
+  </script>
+</body>
+</html>
