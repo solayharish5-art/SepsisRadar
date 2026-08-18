@@ -28,7 +28,7 @@ def verify_api_key(api_key: str = Security(api_key_header)):
 # --- SECURITY LAYER 2: STRICT CORS CONFIGURATION ---
 # REPLACE "yourusername" with your actual GitHub username!
 origins = [
-    "https://yourusername.github.io", 
+    "https://solayharish5-art.github.io", 
     "http://localhost:8000",
     "http://127.0.0.1:8000"
 ]
