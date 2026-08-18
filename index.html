@@ -135,6 +135,7 @@
       { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 }   // Sustains 53.8% -> ALERT!
     ];
 
+    // Patient B: Rapid onset shock (Spikes immediately on Hour 2)
     const patientB = [
       { heart_rate: 82.0,  temp: 37.1, resp_rate: 18.0, wbc: 9.5,  systolic_bp: 112.0 }, // Normal
       { heart_rate: 118.0, temp: 39.0, resp_rate: 24.0, wbc: 15.5, systolic_bp: 90.0 },  // Hits 53.8%
@@ -183,35 +184,57 @@
       updateInputs(currentSimulation[simIndex]);
     }
 
+    // Helper to safely reset the button state
+    function resetBtnState(btn) {
+      btn.disabled = false;
+      btn.innerText = "Submit Live Reading (+1h)";
+      btn.classList.remove("opacity-50", "cursor-not-allowed");
+    }
+
     async function submitLiveReading() {
-      // 1. Grab the button and disable it so it can't be clicked twice
+      // 1. Grab the button and disable it
       const btn = document.getElementById('advance-btn');
       btn.disabled = true;
       btn.innerText = "Processing...";
       btn.classList.add("opacity-50", "cursor-not-allowed");
 
-      const currentVitals = {
-        heart_rate: parseFloat(document.getElementById('input-hr').value),
-        temp: parseFloat(document.getElementById('input-temp').value),
-        resp_rate: parseFloat(document.getElementById('input-rr').value),
-        wbc: parseFloat(document.getElementById('input-wbc').value),
-        systolic_bp: parseFloat(document.getElementById('input-bp').value)
-      };
+      // 2. Read current UI inputs
+      const hr = parseFloat(document.getElementById('input-hr').value);
+      const temp = parseFloat(document.getElementById('input-temp').value);
+      const rr = parseFloat(document.getElementById('input-rr').value);
+      const wbc = parseFloat(document.getElementById('input-wbc').value);
+      const bp = parseFloat(document.getElementById('input-bp').value);
 
+      // --- SECURITY LAYER 3: DATA SANITIZATION & BOUNDS ---
+      // This prevents bad data or manual tampering from crashing the ML endpoint
+      if (isNaN(hr) || hr <= 0 || hr > 300) { alert("Invalid Heart Rate blocked by edge validation."); resetBtnState(btn); return; }
+      if (isNaN(temp) || temp <= 20 || temp > 45) { alert("Invalid Temperature blocked by edge validation."); resetBtnState(btn); return; }
+      if (isNaN(rr) || rr <= 0 || rr > 100) { alert("Invalid Respiratory Rate blocked by edge validation."); resetBtnState(btn); return; }
+      if (isNaN(wbc) || wbc <= 0 || wbc > 200) { alert("Invalid WBC count blocked by edge validation."); resetBtnState(btn); return; }
+      if (isNaN(bp) || bp <= 0 || bp > 300) { alert("Invalid Systolic BP blocked by edge validation."); resetBtnState(btn); return; }
+
+      const currentVitals = { heart_rate: hr, temp: temp, resp_rate: rr, wbc: wbc, systolic_bp: bp };
       liveTrajectoryData.push(currentVitals);
 
       try {
         const res = await fetch(API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-API-Key': 'nexus-sepsis-hackathon-2026' // Injecting the secret handshake to bypass FastAPI backend security
+          },
           body: JSON.stringify(liveTrajectoryData)
         });
+        
+        // Catch API authentication or CORS rejections explicitly
+        if (!res.ok) throw new Error(`Server rejected request: HTTP ${res.status}`);
+        
         const data = await res.json();
         
         const trajectory = data.trajectory;
         const latestPoint = trajectory[trajectory.length - 1];
 
-        // Update UI
+        // Update UI Metrics
         document.getElementById('risk-prob').innerText = `${(latestPoint.risk_score * 100).toFixed(1)}%`;
         document.getElementById('time-horizon').innerText = latestPoint.time_horizon;
         document.getElementById('consecutive-count').innerText = `${latestPoint.consecutive_elevated_readings} / 2 readings`;
@@ -220,6 +243,7 @@
         const status = document.getElementById('alert-status');
         const subtext = document.getElementById('alert-subtext');
 
+        // Dynamic Banner Logic
         if (latestPoint.alert) {
           banner.className = "p-4 rounded-xl bg-red-950/80 border border-red-600 text-red-400 animate-pulse";
           status.innerText = "🚨 SEPSIS ONSET ALERT";
@@ -240,6 +264,7 @@
           chart.data.datasets[0].pointBackgroundColor = '#06b6d4';
         }
 
+        // Explainability Feature Mapping
         const factorsContainer = document.getElementById('factors-list');
         factorsContainer.innerHTML = '';
         latestPoint.top_factors.slice(0, 3).forEach(f => {
@@ -250,6 +275,7 @@
             </div>`;
         });
 
+        // Graph Redraw
         chart.data.labels = trajectory.map(p => `Hour ${p.time_point}`);
         chart.data.datasets[0].data = trajectory.map(p => (p.risk_score * 100).toFixed(1));
         chart.update();
@@ -263,14 +289,11 @@
         }
 
       } catch (err) {
-        console.error(err);
-        alert("Failed to hit backend API.");
+        console.error("API Call Failed:", err);
+        alert(`Failed to hit backend API.\nError: ${err.message}`);
       } finally {
         // 3. Turn the button back on no matter what happens
-        const btn = document.getElementById('advance-btn');
-        btn.disabled = false;
-        btn.innerText = "Submit Live Reading (+1h)";
-        btn.classList.remove("opacity-50", "cursor-not-allowed");
+        resetBtnState(btn);
       }
     }
   </script>
